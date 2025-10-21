@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Trading Platform</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -21,11 +19,11 @@
                     </div>
                 </div>
                 <div class="header-right">
-                    <button class="btn-icon" id="refreshBtn">
-                        <i class="bi bi-arrow-clockwise"></i>
+                    <button class="btn-icon" id="refreshBtn" aria-label="刷新">
+                        <span class="icon" aria-hidden="true">⟳</span>
                     </button>
                     <button class="btn-primary" id="addModelBtn">
-                        <i class="bi bi-plus-lg"></i>
+                        <span class="icon" aria-hidden="true">＋</span>
                         添加模型
                     </button>
                 </div>
@@ -57,28 +55,28 @@
                     <div class="stat-card">
                         <div class="stat-header">
                             <span class="stat-label">账户总值</span>
-                            <i class="bi bi-wallet2 text-primary"></i>
+                            <span class="stat-icon text-primary" aria-hidden="true">💼</span>
                         </div>
                         <div class="stat-value">$0.00</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-header">
                             <span class="stat-label">可用现金</span>
-                            <i class="bi bi-cash text-success"></i>
+                            <span class="stat-icon text-success" aria-hidden="true">💰</span>
                         </div>
                         <div class="stat-value">$0.00</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-header">
                             <span class="stat-label">已实现盈亏</span>
-                            <i class="bi bi-graph-up text-info"></i>
+                            <span class="stat-icon text-info" aria-hidden="true">📈</span>
                         </div>
                         <div class="stat-value">$0.00</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-header">
                             <span class="stat-label">未实现盈亏</span>
-                            <i class="bi bi-graph-down text-warning"></i>
+                            <span class="stat-icon text-warning" aria-hidden="true">📉</span>
                         </div>
                         <div class="stat-value">$0.00</div>
                     </div>
@@ -90,7 +88,7 @@
                         <h3 class="card-title">账户价值走势</h3>
                     </div>
                     <div class="card-body">
-                        <div id="accountChart" style="width: 100%; height: 300px;"></div>
+                        <canvas id="accountChart"></canvas>
                     </div>
                 </div>
 
@@ -158,8 +156,8 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3>添加交易模型</h3>
-                <button class="btn-close" id="closeModalBtn">
-                    <i class="bi bi-x-lg"></i>
+                <button class="btn-close" id="closeModalBtn" aria-label="关闭">
+                    <span class="icon" aria-hidden="true">✕</span>
                 </button>
             </div>
             <div class="modal-body">
