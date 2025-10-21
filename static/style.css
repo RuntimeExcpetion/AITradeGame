@@ -164,6 +164,34 @@ body {
     color: var(--text-1);
 }
 
+.icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-style: normal;
+    line-height: 1;
+}
+
+.btn-icon .icon,
+.btn-primary .icon {
+    font-size: 16px;
+}
+
+.btn-close .icon {
+    font-size: 14px;
+}
+
+.stat-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    font-size: 16px;
+}
+
 /* Body Layout */
 .app-body {
     display: flex;

@@ -1,20 +1,26 @@
 class TradingApp {
     constructor() {
         this.currentModelId = null;
-        this.chart = null;
+        this.chartCanvas = null;
+        this.chartData = [];
         this.refreshIntervals = {
             market: null,
             portfolio: null,
             trades: null
         };
+        this.handleResize = null;
         this.init();
     }
 
     init() {
+        this.chartCanvas = document.getElementById('accountChart');
+        this.handleResize = () => this.renderChart();
+        window.addEventListener('resize', this.handleResize);
         this.initEventListeners();
         this.loadModels();
         this.loadMarketPrices();
         this.startRefreshCycles();
+        this.renderChart();
     }
 
     initEventListeners() {
@@ -58,7 +64,7 @@ class TradingApp {
                 <div class="model-info">
                     <span>${model.model_name}</span>
                     <span class="model-delete" onclick="event.stopPropagation(); app.deleteModel(${model.id})">
-                        <i class="bi bi-trash"></i>
+                        <span class="icon" aria-hidden="true">🗑️</span>
                     </span>
                 </div>
             </div>
@@ -108,32 +114,22 @@ class TradingApp {
     }
 
     updateChart(history, currentValue) {
-        const chartDom = document.getElementById('accountChart');
-        
-        if (!this.chart) {
-            this.chart = echarts.init(chartDom);
-            window.addEventListener('resize', () => {
-                if (this.chart) {
-                    this.chart.resize();
-                }
-            });
-        }
-
-        const data = history.reverse().map(h => ({
-            time: new Date(h.timestamp.replace(' ', 'T') + 'Z').toLocaleTimeString('zh-CN', { 
+        const sortedHistory = Array.isArray(history) ? [...history].reverse() : [];
+        const data = sortedHistory.map(h => ({
+            time: new Date(h.timestamp.replace(' ', 'T') + 'Z').toLocaleTimeString('zh-CN', {
                 timeZone: 'Asia/Shanghai',
-                hour: '2-digit', 
-                minute: '2-digit' 
+                hour: '2-digit',
+                minute: '2-digit'
             }),
             value: h.total_value
         }));
 
         if (currentValue !== undefined && currentValue !== null) {
             const now = new Date();
-            const currentTime = now.toLocaleTimeString('zh-CN', { 
+            const currentTime = now.toLocaleTimeString('zh-CN', {
                 timeZone: 'Asia/Shanghai',
-                hour: '2-digit', 
-                minute: '2-digit' 
+                hour: '2-digit',
+                minute: '2-digit'
             });
             data.push({
                 time: currentTime,
@@ -141,69 +137,151 @@ class TradingApp {
             });
         }
 
-        const option = {
-            grid: {
-                left: '60',
-                right: '20',
-                bottom: '30',
-                top: '20',
-                containLabel: false
-            },
-            xAxis: {
-                type: 'category',
-                boundaryGap: false,
-                data: data.map(d => d.time),
-                axisLine: { lineStyle: { color: '#e5e6eb' } },
-                axisLabel: { color: '#86909c', fontSize: 11 }
-            },
-            yAxis: {
-                type: 'value',
-                scale: true,
-                axisLine: { lineStyle: { color: '#e5e6eb' } },
-                axisLabel: { 
-                    color: '#86909c', 
-                    fontSize: 11,
-                    formatter: (value) => `$${value.toLocaleString()}`
-                },
-                splitLine: { lineStyle: { color: '#f2f3f5' } }
-            },
-            series: [{
-                type: 'line',
-                data: data.map(d => d.value),
-                smooth: true,
-                symbol: 'none',
-                lineStyle: { color: '#3370ff', width: 2 },
-                areaStyle: {
-                    color: {
-                        type: 'linear',
-                        x: 0, y: 0, x2: 0, y2: 1,
-                        colorStops: [
-                            { offset: 0, color: 'rgba(51, 112, 255, 0.2)' },
-                            { offset: 1, color: 'rgba(51, 112, 255, 0)' }
-                        ]
-                    }
-                }
-            }],
-            tooltip: {
-                trigger: 'axis',
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                borderColor: '#e5e6eb',
-                borderWidth: 1,
-                textStyle: { color: '#1d2129' },
-                formatter: (params) => {
-                    const value = params[0].value;
-                    return `${params[0].axisValue}<br/>$${value.toFixed(2)}`;
-                }
-            }
-        };
+        this.chartData = data;
+        this.renderChart();
+    }
 
-        this.chart.setOption(option);
-        
-        setTimeout(() => {
-            if (this.chart) {
-                this.chart.resize();
+    renderChart() {
+        const canvas = this.chartCanvas || document.getElementById('accountChart');
+        if (!canvas) return;
+
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
+
+        if (width === 0 || height === 0) {
+            return;
+        }
+
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            return;
+        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, width, height);
+
+        if (!this.chartData || this.chartData.length === 0) {
+            ctx.fillStyle = '#86909c';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('暂无数据', width / 2, height / 2);
+            return;
+        }
+
+        const padding = { top: 20, right: 20, bottom: 30, left: 60 };
+        const chartWidth = Math.max(width - padding.left - padding.right, 0);
+        const chartHeight = Math.max(height - padding.top - padding.bottom, 0);
+
+        if (chartWidth <= 0 || chartHeight <= 0) {
+            return;
+        }
+
+        const values = this.chartData.map(point => point.value);
+        const rawMin = Math.min(...values);
+        const rawMax = Math.max(...values);
+
+        let minValue = rawMin;
+        let maxValue = rawMax;
+
+        if (rawMax === rawMin) {
+            const padding = rawMax === 0 ? 1 : Math.abs(rawMax) * 0.05;
+            minValue = rawMin - padding;
+            maxValue = rawMax + padding;
+        }
+
+        const range = maxValue - minValue || 1;
+
+        const points = this.chartData.map((point, index) => {
+            const xRatio = this.chartData.length > 1 ? index / (this.chartData.length - 1) : 0;
+            const x = padding.left + chartWidth * xRatio;
+            const yRatio = (point.value - minValue) / range;
+            const y = padding.top + chartHeight - chartHeight * yRatio;
+            return { ...point, x, y };
+        });
+
+        ctx.lineWidth = 1;
+        ctx.font = '12px sans-serif';
+        ctx.fillStyle = '#86909c';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+
+        const horizontalSteps = 4;
+        ctx.strokeStyle = '#f2f3f5';
+        for (let i = 0; i <= horizontalSteps; i++) {
+            const y = padding.top + (chartHeight / horizontalSteps) * i;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(width - padding.right, y);
+            ctx.stroke();
+
+            const value = rawMax === rawMin
+                ? rawMax
+                : maxValue - (range / horizontalSteps) * i;
+            ctx.fillText(`$${value.toFixed(2)}`, padding.left - 10, y);
+        }
+
+        ctx.strokeStyle = '#e5e6eb';
+        ctx.beginPath();
+        ctx.moveTo(padding.left, padding.top);
+        ctx.lineTo(padding.left, height - padding.bottom);
+        ctx.lineTo(width - padding.right, height - padding.bottom);
+        ctx.stroke();
+
+        const gradient = ctx.createLinearGradient(0, padding.top, 0, height - padding.bottom);
+        gradient.addColorStop(0, 'rgba(51, 112, 255, 0.2)');
+        gradient.addColorStop(1, 'rgba(51, 112, 255, 0)');
+
+        ctx.beginPath();
+        points.forEach((point, index) => {
+            if (index === 0) {
+                ctx.moveTo(point.x, point.y);
+            } else {
+                ctx.lineTo(point.x, point.y);
             }
-        }, 100);
+        });
+        ctx.lineTo(points[points.length - 1].x, height - padding.bottom);
+        ctx.lineTo(points[0].x, height - padding.bottom);
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        ctx.strokeStyle = '#3370ff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        points.forEach((point, index) => {
+            if (index === 0) {
+                ctx.moveTo(point.x, point.y);
+            } else {
+                ctx.lineTo(point.x, point.y);
+            }
+        });
+        ctx.stroke();
+
+        if (points.length > 0) {
+            const lastPoint = points[points.length - 1];
+            ctx.fillStyle = '#3370ff';
+            ctx.beginPath();
+            ctx.arc(lastPoint.x, lastPoint.y, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.fillStyle = '#86909c';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+
+        const labelCount = Math.min(4, points.length);
+        for (let i = 0; i < labelCount; i++) {
+            const ratio = labelCount === 1 ? 0 : i / (labelCount - 1);
+            const index = labelCount === 1 ? points.length - 1 : Math.round((points.length - 1) * ratio);
+            const labelPoint = points[index];
+            ctx.fillText(labelPoint.time, labelPoint.x, height - padding.bottom + 8);
+        }
+
+        this.chartCanvas = canvas;
     }
 
     updatePositions(positions) {
