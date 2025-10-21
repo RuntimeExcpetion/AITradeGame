@@ -79,12 +79,20 @@ def delete_model(model_id):
 
 @app.route('/api/models/<int:model_id>/portfolio', methods=['GET'])
 def get_portfolio(model_id):
+    model = db.get_model(model_id)
+    if not model:
+        return jsonify({'error': 'Model not found'}), 404
+
     prices_data = market_fetcher.get_current_prices(['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE'])
     current_prices = {coin: prices_data[coin]['price'] for coin in prices_data}
-    
-    portfolio = db.get_portfolio(model_id, current_prices)
+
+    try:
+        portfolio = db.get_portfolio(model_id, current_prices)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 404
+
     account_value = db.get_account_value_history(model_id, limit=100)
-    
+
     return jsonify({
         'portfolio': portfolio,
         'account_value_history': account_value
