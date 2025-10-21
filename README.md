@@ -44,12 +44,11 @@ python app.py
 
 ```
 trading_bot/
-├── app.py              # Flask 应用入口
-├── ai_trade_game/      # 后端核心包
-│   ├── __init__.py     # 应用工厂
-│   ├── api/            # REST API 蓝图
-│   ├── config.py       # 全局配置
-│   └── services/       # 数据、AI、交易服务
+├── app.py              # Flask 应用主程序
+├── trading_engine.py   # 交易逻辑引擎
+├── ai_trader.py        # AI 集成模块
+├── database.py         # 数据层
+├── market_data.py      # 市场数据接口
 ├── static/             # CSS/JS 资源
 ├── templates/          # HTML 模板
 └── requirements.txt    # Python 依赖
