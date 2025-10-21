@@ -23,6 +23,48 @@ class TradingApp {
         this.renderChart();
     }
 
+    async requestJson(url, options = {}) {
+        const { context = 'request', ...fetchOptions } = options;
+        const method = (fetchOptions.method || 'GET').toUpperCase();
+        const hasBody = Object.prototype.hasOwnProperty.call(fetchOptions, 'body');
+
+        console.info(`[${context}] -> ${method} ${url}${hasBody ? ' (payload hidden)' : ''}`);
+
+        let response;
+        try {
+            response = await fetch(url, fetchOptions);
+        } catch (networkError) {
+            console.error(`[${context}] Network error`, networkError);
+            throw networkError;
+        }
+
+        const responseText = await response.text();
+        console.info(`[${context}] <- ${response.status} ${response.statusText} (${response.url})`);
+
+        if (!response.ok) {
+            console.error(`[${context}] HTTP error`, {
+                url: response.url,
+                status: response.status,
+                statusText: response.statusText,
+                bodyPreview: responseText.slice(0, 200)
+            });
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        if (!responseText.trim()) {
+            return null;
+        }
+
+        try {
+            return JSON.parse(responseText);
+        } catch (parseError) {
+            console.error(`[${context}] JSON parse error`, parseError, {
+                bodyPreview: responseText.slice(0, 200)
+            });
+            throw parseError;
+        }
+    }
+
     initEventListeners() {
         document.getElementById('addModelBtn').addEventListener('click', () => this.showModal());
         document.getElementById('closeModalBtn').addEventListener('click', () => this.hideModal());
@@ -37,8 +79,13 @@ class TradingApp {
 
     async loadModels() {
         try {
-            const response = await fetch('/api/models');
-            const models = await response.json();
+            const models = await this.requestJson('/api/models', { context: 'loadModels' });
+
+            if (!Array.isArray(models)) {
+                console.error('[loadModels] Unexpected response format', models);
+                return;
+            }
+
             this.renderModels(models);
 
             if (models.length > 0 && !this.currentModelId) {
@@ -82,16 +129,24 @@ class TradingApp {
 
         try {
             const [portfolio, trades, conversations] = await Promise.all([
-                fetch(`/api/models/${this.currentModelId}/portfolio`).then(r => r.json()),
-                fetch(`/api/models/${this.currentModelId}/trades?limit=50`).then(r => r.json()),
-                fetch(`/api/models/${this.currentModelId}/conversations?limit=20`).then(r => r.json())
+                this.requestJson(`/api/models/${this.currentModelId}/portfolio`, { context: 'loadModelData:portfolio' }),
+                this.requestJson(`/api/models/${this.currentModelId}/trades?limit=50`, { context: 'loadModelData:trades' }),
+                this.requestJson(`/api/models/${this.currentModelId}/conversations?limit=20`, { context: 'loadModelData:conversations' })
             ]);
+
+            if (!portfolio || !portfolio.portfolio) {
+                console.error('[loadModelData] Unexpected portfolio response', portfolio);
+                return;
+            }
+
+            const tradeList = Array.isArray(trades) ? trades : [];
+            const conversationList = Array.isArray(conversations) ? conversations : [];
 
             this.updateStats(portfolio.portfolio);
             this.updateChart(portfolio.account_value_history, portfolio.portfolio.total_value);
             this.updatePositions(portfolio.portfolio.positions);
-            this.updateTrades(trades);
-            this.updateConversations(conversations);
+            this.updateTrades(tradeList);
+            this.updateConversations(conversationList);
         } catch (error) {
             console.error('Failed to load model data:', error);
         }
@@ -369,8 +424,7 @@ class TradingApp {
 
     async loadMarketPrices() {
         try {
-            const response = await fetch('/api/market/prices');
-            const prices = await response.json();
+            const prices = await this.requestJson('/api/market/prices', { context: 'loadMarketPrices' });
             this.renderMarketPrices(prices);
         } catch (error) {
             console.error('Failed to load market prices:', error);
@@ -427,17 +481,16 @@ class TradingApp {
         }
 
         try {
-            const response = await fetch('/api/models', {
+            await this.requestJson('/api/models', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                body: JSON.stringify(data),
+                context: 'submitModel'
             });
 
-            if (response.ok) {
-                this.hideModal();
-                this.loadModels();
-                this.clearForm();
-            }
+            this.hideModal();
+            this.loadModels();
+            this.clearForm();
         } catch (error) {
             console.error('Failed to add model:', error);
             alert('添加模型失败');
@@ -448,16 +501,15 @@ class TradingApp {
         if (!confirm('确定要删除这个模型吗？')) return;
 
         try {
-            const response = await fetch(`/api/models/${modelId}`, {
-                method: 'DELETE'
+            await this.requestJson(`/api/models/${modelId}`, {
+                method: 'DELETE',
+                context: 'deleteModel'
             });
 
-            if (response.ok) {
-                if (this.currentModelId === modelId) {
-                    this.currentModelId = null;
-                }
-                this.loadModels();
+            if (this.currentModelId === modelId) {
+                this.currentModelId = null;
             }
+            this.loadModels();
         } catch (error) {
             console.error('Failed to delete model:', error);
         }
