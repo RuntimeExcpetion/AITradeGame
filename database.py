@@ -217,7 +217,12 @@ class Database:
         
         # Get initial capital
         cursor.execute('SELECT initial_capital FROM models WHERE id = ?', (model_id,))
-        initial_capital = cursor.fetchone()['initial_capital']
+        model_row = cursor.fetchone()
+        if model_row is None:
+            conn.close()
+            raise ValueError(f"Model {model_id} not found")
+
+        initial_capital = model_row['initial_capital']
         
         # Calculate realized P&L (sum of all trade P&L)
         cursor.execute('''
