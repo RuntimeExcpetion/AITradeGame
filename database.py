@@ -1,14 +1,52 @@
+"""Database management module.
+
+This module centralizes the logic for reading from and writing to the SQLite
+database that powers the trading application.  On platforms like Vercel the
+deployment filesystem is read-only, with ``/tmp`` being the only writable
+location.  The :class:`Database` class now detects such environments and falls
+back to a writable directory automatically, preventing import-time crashes
+when the schema is initialized.
 """
-Database management module
-"""
+
+from __future__ import annotations
+
+import os
 import sqlite3
 import json
 from datetime import datetime
 from typing import List, Dict, Optional
 
 class Database:
-    def __init__(self, db_path: str = 'trading_bot.db'):
-        self.db_path = db_path
+    """Lightweight SQLite helper used across the application."""
+
+    def __init__(self, db_path: Optional[str] = None):
+        # Resolve the path lazily to handle read-only deployments (e.g. Vercel).
+        self.db_path = self._resolve_db_path(db_path)
+
+    @staticmethod
+    def _resolve_db_path(provided_path: Optional[str]) -> str:
+        """Determine the database path with sensible fallbacks.
+
+        Precedence order:
+        1. Explicit ``db_path`` argument
+        2. ``DATABASE_PATH`` environment variable
+        3. ``/tmp/trading_bot.db`` when running on Vercel (``VERCEL`` env)
+        4. Local default ``trading_bot.db``
+        """
+
+        path = provided_path or os.getenv('DATABASE_PATH')
+
+        if not path:
+            if os.getenv('VERCEL'):
+                path = os.path.join('/tmp', 'trading_bot.db')
+            else:
+                path = 'trading_bot.db'
+
+        directory = os.path.dirname(path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
+
+        return path
         
     def get_connection(self):
         """Get database connection"""

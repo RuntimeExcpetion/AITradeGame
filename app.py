@@ -12,9 +12,13 @@ from database import Database
 app = Flask(__name__)
 CORS(app)
 
-db = Database('trading_bot.db')
+db = Database()
 # Ensure the database schema exists before handling any requests
-db.init_db()
+try:
+    db.init_db()
+except Exception as exc:
+    # Avoid crashing the import; downstream requests will surface the error.
+    print(f"[ERROR] Database initialization failed: {exc}")
 market_fetcher = MarketDataFetcher()
 trading_engines = {}
 auto_trading = True
