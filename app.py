@@ -13,6 +13,8 @@ app = Flask(__name__)
 CORS(app)
 
 db = Database('trading_bot.db')
+# Ensure the database schema exists before handling any requests
+db.init_db()
 market_fetcher = MarketDataFetcher()
 trading_engines = {}
 auto_trading = True
